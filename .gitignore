@@ -1,0 +1,139 @@
+# Alza Email Bot - GitHub Repository .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Google Cloud & Credentials (CRITICAL - NEVER COMMIT)
+*.json
+!knowledge_base/*.json
+service-account-key.json
+client_secret_*.json
+token.json
+credentials.json
+gmail_token.json
+gmail_credentials.json
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Google Cloud Project Files
+.gcloudignore
+
+# Logs & Debug Files
+*.log
+logs/
+logs.txt
+debug.log
+*.logs
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing & Coverage
+.coverage
+.pytest_cache/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Project-Specific Exclusions
+backup*.py
+main-old.py
+*backup*
+test_*.py
+!tests/test_comprehensive_multimodal.py
+debug_*.py
+
+# Session & Status Files (Development only)
+PROJECT_STATUS.md
+CURRENT_SESSION_STATE.md
+CONTEXT_GUIDE_FOR_CLAUDE.md
+DEPLOYMENT_READY.md
+architecture_recommendations.md
+maintask.md
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Claude Code Session Files
+.claude/
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
