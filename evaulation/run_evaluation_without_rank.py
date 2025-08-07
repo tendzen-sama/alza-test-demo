@@ -11,22 +11,16 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 
 # Import the core logic from our new module
-import rag_evaluator
+import rag_evaluator_without_rank
+
 
 # --- Setup ---
-# Configure logging for clear, informative output during the run.
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-# Load environment variables from your .env file
 load_dotenv()
 
 # --- BEST PRACTICE: Load all configuration from a YAML file ---
-# This makes the system easy to modify without changing the code.
-try:
-    with open("config.yaml", 'r') as f:
-        config = yaml.safe_load(f)
-except FileNotFoundError:
-    logging.error("FATAL: config.yaml not found. Please create it before running.")
-    exit(1)
+with open("config.yaml", 'r') as f:
+    config = yaml.safe_load(f)
 
 # --- Environment & Config Variables ---
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -34,31 +28,22 @@ LOCATION = os.getenv("RAG_CORPUS_REGION")
 RAG_CORPUS_ID = os.getenv("RAG_CORPUS_ID")
 
 # --- BEST PRACTICE: Caching Logic ---
-def load_cache(cache_path):
-    """Loads previous results from a JSON cache file to avoid re-running."""
-    if os.path.exists(cache_path):
-        logging.info(f"Loading existing cache from {cache_path}")
-        with open(cache_path, 'r') as f:
+def load_cache(cache_path_without_rank):
+    if os.path.exists(cache_path_without_rank):
+        with open(cache_path_without_rank, 'r') as f:
             return json.load(f)
-    logging.info("No cache file found. Starting a new run.")
     return {}
 
-def save_cache(cache_path, cache):
-    """Saves new results to the JSON cache file."""
-    logging.info(f"Saving updated cache to {cache_path}")
-    with open(cache_path, 'w') as f:
+def save_cache(cache_path_without_rank, cache):
+    with open(cache_path_without_rank, 'w') as f:
         json.dump(cache, f, indent=2)
 
 def generate_report(results_df, output_folder):
-    """
-    Generates a comprehensive Markdown report and a machine-readable JSONL file.
-    """
-    # Create a unique filename for this evaluation run
+    """Generates a comprehensive Markdown and JSONL report."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     md_path = os.path.join(output_folder, f"EVALUATION_RESULTS_{timestamp}.md")
     jsonl_path = os.path.join(output_folder, f"EVALUATION_RESULTS_{timestamp}.jsonl")
 
-    # Ensure the output directory exists
     os.makedirs(output_folder, exist_ok=True)
 
     # --- Generate Markdown Report ---
@@ -83,13 +68,12 @@ def generate_report(results_df, output_folder):
 
     logging.info(f"Markdown report saved to {md_path}")
 
-    # --- Generate JSONL Report for machine processing ---
+    # --- Generate JSONL Report ---
     results_df.to_json(jsonl_path, orient='records', lines=True, force_ascii=False)
     logging.info(f"JSONL report saved to {jsonl_path}")
 
 
 if __name__ == "__main__":
-    # --- 1. Initialization and Setup ---
     if not all([PROJECT_ID, LOCATION, RAG_CORPUS_ID]):
         raise ValueError("Please set PROJECT_ID, RAG_CORPUS_REGION, and RAG_CORPUS_ID in your .env file.")
 
@@ -105,12 +89,9 @@ if __name__ == "__main__":
             response_schema={
                 "type": "object",
                 "properties": {
-                    "context_relevance_score": {"type": "number", "description": "Score for context relevance."},
-                    "context_relevance_reasoning": {"type": "string", "description": "Reasoning for context relevance score."},
-                    "faithfulness_score": {"type": "number", "description": "Score for answer faithfulness."},
-                    "faithfulness_reasoning": {"type": "string", "description": "Reasoning for faithfulness score."},
-                    "correctness_score": {"type": "number", "description": "Score for answer correctness."},
-                    "correctness_reasoning": {"type": "string", "description": "Reasoning for correctness score."}
+                    "context_relevance_score": {"type": "number"}, "context_relevance_reasoning": {"type": "string"},
+                    "faithfulness_score": {"type": "number"}, "faithfulness_reasoning": {"type": "string"},
+                    "correctness_score": {"type": "number"}, "correctness_reasoning": {"type": "string"}
                 },
                 "required": ["context_relevance_score", "faithfulness_score", "correctness_score"]
             },
@@ -125,10 +106,9 @@ if __name__ == "__main__":
     with open(config['golden_dataset_path'], 'r', encoding='utf-8') as f:
         questions = [json.loads(line) for line in f]
 
-    cache = load_cache(config['cache_path'])
+    cache = load_cache(config['cache_path_without_rank'])
     results = []
 
-    # --- 2. Main Evaluation Loop ---
     logging.info(f"Starting evaluation for {len(questions)} questions...")
     for i, item in enumerate(questions):
         question = item['question']
@@ -139,15 +119,12 @@ if __name__ == "__main__":
             logging.info("Result found in cache. Skipping API calls.")
             results.append(cache[question])
         else:
-            # Call the core RAG logic from the evaluator module
-            rag_response = rag_evaluator.get_reranked_rag_response(question, rag_corpus_path, generation_model, config)
-
+            rag_response = rag_evaluator_without_rank.get_rag_response(question, rag_corpus_path, generation_model, config['num_context_chunks'])
             answer = rag_response['answer']
             contexts = rag_response['contexts']
             full_context_str = "\n\n---\n\n".join(contexts)
 
-            # Call the evaluation logic from the evaluator module
-            eval_scores = rag_evaluator.run_multi_faceted_evaluation(question, answer, full_context_str, ground_truth, evaluation_model)
+            eval_scores = rag_evaluator_without_rank.run_multi_faceted_evaluation(question, answer, full_context_str, ground_truth, evaluation_model)
 
             current_result = {
                 "question": question,
@@ -169,16 +146,10 @@ if __name__ == "__main__":
         
         time.sleep(delay)
 
-    # --- 3. Caching and Reporting ---
-    save_cache(config['cache_path'], cache)
-
-    if not results:
-        logging.warning("No results were generated. Exiting before creating report.")
-        exit()
-
+    save_cache(config['cache_path_without_rank'], cache)
     results_df = pd.DataFrame(results)
     generate_report(results_df, config['output_folder'])
 
-    print("\n\n--- FINAL EVALUATION SUMMARY (WITH RERANKER) ---")
+    print("\n\n--- FINAL EVALUATION SUMMARY ---")
     print(results_df[['context_relevance_score', 'faithfulness_score', 'correctness_score']].mean().to_frame('Average Score'))
     logging.info("\nEvaluation complete.")

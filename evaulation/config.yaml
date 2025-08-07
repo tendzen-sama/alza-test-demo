@@ -1,19 +1,20 @@
 # --- Model Configuration ---
 # Model used to generate the answer from the retrieved context
-generation_model_name: "gemini-2.5-flash-lite"
+generation_model_name: "gemini-2.5-flash"  # Faster and cheaper for generation
 # Model used to perform the multi-faceted evaluation
-evaluation_model_name: "gemini-2.5-flash-lite" # Using a more powerful model for nuanced evaluation
+evaluation_model_name: "gemini-2.5-pro" # Keep pro for accurate evaluation
+
+ranker_model_name: "gemini-2.5-flash-lite"  # Faster and cheaper for ranking
 
 # --- File Paths ---
-# The input dataset containing questions and ground truth answers
 golden_dataset_path: "golden_dataset.jsonl"
-# The folder where all evaluation outputs will be saved
 output_folder: "evaluation_reports"
-# The file to use for caching results to speed up subsequent runs
-cache_path: "cache.json"
+cache_path: "cache_reranked2.json" # Use a new cache file for the reranked run
+cache_path_without_rank: "cache2.json"
 
 # --- Evaluation Parameters ---
+top_k: 3
 # The number of top context chunks to use for generating the answer
 num_context_chunks: 2
 # The delay in seconds between processing each item to respect API rate limits
-rate_limit_delay: 8
+rate_limit_delay: 3  # Reduced from 8 to 3 seconds - much faster evaluation

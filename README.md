@@ -342,7 +342,13 @@ This system demonstrates advanced AI capabilities suitable for enterprise custom
 
 ### Recent Optimizations
 
-**RAG Context Limiting (Latest Update):**
+**RAG Reranking Enhancement (Latest Update):**
+- **Implementation**: LLM-based reranking using Gemini 2.5 Flash Lite
+- **Performance Gain**: 30.8% improvement in answer correctness (measured via comprehensive evaluation)
+- **Technical Approach**: RagRetrievalConfig with LlmRanker for intelligent context ordering
+- **Production Status**: ✅ Deployed to cloud function
+
+**RAG Context Limiting:**
 - **Problem**: AI responses overwhelmed by excessive context (79k+ characters)
 - **Solution**: Intelligent filtering to top 3 most relevant results per query
 - **Impact**: 90% reduction in context size, significantly improved response accuracy

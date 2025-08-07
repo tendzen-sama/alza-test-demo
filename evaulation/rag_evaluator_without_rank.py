@@ -7,7 +7,7 @@ from vertexai import rag
 from vertexai.generative_models import GenerativeModel
 from google.api_core.exceptions import ResourceExhausted
 
-# (call_with_retry function remains the same)
+# --- IMPROVED: Smart Retries with Reasonable Delays ---
 def call_with_retry(api_call: Callable[[], Any], max_retries: int = 8, initial_delay: float = 2.0) -> Any:
     """
     Calls an API with intelligent retry strategy - much more reasonable delays.
@@ -44,57 +44,35 @@ def call_with_retry(api_call: Callable[[], Any], max_retries: int = 8, initial_d
                 raise e
     return None
 
-def get_reranked_rag_response(question: str, rag_corpus_path: str, generation_model: GenerativeModel, config: Dict) -> Dict:
-    """
-    Implements the retrieve-and-rank pattern using the correct RagRetrievalConfig object,
-    adhering strictly to the provided Google Cloud documentation examples.
-    """
+def get_rag_response(question: str, rag_corpus_path: str, generation_model: GenerativeModel, num_chunks: int) -> Dict:
+    logging.info(f"Step 1: Retrieving context for question: '{question}'")
     contexts = []
     try:
-        logging.info(f"Step 1: Configuring retrieval and ranking to fetch top {config['top_k']} documents.")
-
-        rag_config = rag.RagRetrievalConfig(
-            top_k=config['top_k'],
-            ranking=rag.Ranking(
-                llm_ranker=rag.LlmRanker(
-                    model_name=config['ranker_model_name']
-                )
-            )
-        )
-
-        retrieval_api_call = lambda: rag.retrieval_query(
+        rag_api_call = lambda: rag.retrieval_query(
             rag_resources=[rag.RagResource(rag_corpus=rag_corpus_path)],
-            text=question,
-            rag_retrieval_config=rag_config
+            text=question
         )
+        response = call_with_retry(rag_api_call)
 
-        # This call is now protected by the improved retry logic
-        response = call_with_retry(retrieval_api_call)
-
-        if response and hasattr(response, 'contexts') and hasattr(response.contexts, 'contexts'):
-            contexts = [context.text for context in response.contexts.contexts]
-            logging.info(f"Successfully retrieved and ranked {len(contexts)} context chunk(s).")
-        else:
-            logging.warning("RAG response was empty or malformed after retrieval.")
-            contexts = []
-
-
+        all_contexts = response.contexts.contexts
+        top_contexts = all_contexts[:num_chunks]
+        contexts = [context.text for context in top_contexts]
+        logging.info(f"Successfully retrieved {len(contexts)} context chunk(s).")
     except Exception as e:
-        logging.error(f"Failed during retrieve/rank process after retries: {e}", exc_info=True)
-        return {"answer": "Error during context retrieval and ranking.", "contexts": []}
+        logging.error(f"Failed to retrieve RAG context after retries: {e}", exc_info=True)
+        return {"answer": "Error during context retrieval.", "contexts": []}
 
     if not contexts:
         logging.warning("No context was retrieved from the RAG corpus.")
         return {"answer": "I do not have enough information to answer this question.", "contexts": []}
 
-    logging.info("Step 2: Generating an answer based on the reranked context.")
+    logging.info("Step 2: Generating an answer based on the retrieved context.")
     combined_context = "\n\n---\n\n".join(contexts)
     prompt = f"""<CONTEXT>{combined_context}</CONTEXT><INSTRUCTIONS>Based ONLY on the information provided in the <CONTEXT> above, answer the following question. If the context does not contain the answer, state that you do not have enough information.</INSTRUCTIONS><QUESTION>{question}</QUESTION>"""
 
     answer = "Error during answer generation."
     try:
         gen_api_call = lambda: generation_model.generate_content(prompt)
-        # This call is also protected
         answer_response = call_with_retry(gen_api_call)
         answer = answer_response.text
         logging.info("Successfully generated an answer.")
@@ -103,7 +81,6 @@ def get_reranked_rag_response(question: str, rag_corpus_path: str, generation_mo
 
     return {"answer": answer, "contexts": contexts}
 
-# (run_multi_faceted_evaluation function remains the same)
 def run_multi_faceted_evaluation(question: str, answer: str, context: str, ground_truth: str, eval_model: GenerativeModel) -> Dict:
     logging.info("Evaluating generated answer with multi-faceted metrics using Gemini...")
     prompt = f"""<ROLE>
