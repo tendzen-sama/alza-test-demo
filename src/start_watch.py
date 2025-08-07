@@ -56,7 +56,7 @@ def main():
 
         print("Success! Gmail will now send notifications.")
         print(f"History ID: {response['historyId']}")
-        print(f"Subscription expires: {response['expiration']}") # Usually after 7 days, but Google often extends it automatically
+        print(f"Subscription expires: {response['expiration']}") # Usually after 7 days, for production in roadmap we need implement cloud function with cloud scheduler to renew it automatically
 
     except HttpError as error:
         print(f"An error occurred: {error}")
