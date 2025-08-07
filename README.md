@@ -70,11 +70,39 @@ src/
 
 ### Processing Flow
 
-1. **Email Monitoring**: Gmail API with Pub/Sub notifications for real-time email detection
-2. **Multi-modal Analysis**: Gemini 2.5 lite processes text + attachments to extract customer questions
-3. **RAG Search**: Vertex AI searches knowledge base for relevant product/service information
-4. **Response Generation**: Gemini 2.5 pro generates personalized customer service responses
-5. **Email Reply**: Automated response sent via Gmail API with threading support
+**1. Event Trigger & Invocation**
+*   A new email arrives in the monitored inbox.
+*   `Gmail API` detects the change and sends a real-time **push notification** to `Cloud Pub/Sub`.
+*   The Pub/Sub message instantly triggers the main **`Cloud Function`**.
+
+**2. Initial Processing & Security**
+*   **State Management:** The function immediately attempts to create a lock in `Firestore` using the email's unique ID to prevent any possibility of duplicate processing.
+*   **Security Validation:** All attachments are validated for allowed types (`.pdf`, `.wav`, etc.) and size limits. Filenames are sanitized to prevent path traversal.
+*   **Input Sanitization:** The email body and subject are sanitized to mitigate prompt injection risks.
+
+**3. AI Core - Step A: Deconstruct the Problem (Query Generation)**
+*   The sanitized email content and attachments are passed to the first Gemini model (`gemini-2.5-lite`).
+*   **Goal:** To understand the user's complete intent and break it down into a list of specific, targeted questions for the knowledge base.
+*   **Output:** A JSON object containing a list of precise search queries (e.g., `["Alza Brno service center address", "return policy hygienic goods", "dispute resolution process"]`).
+
+**4. AI Core - Step B: Gather & Rank Knowledge (Multi-Query RAG)**
+*   The system iterates through the generated list of queries.
+*   For each query, it performs a semantic search against the `Vertex AI RAG` knowledge base.
+*   An **LLM-based reranker** then re-orders the retrieved context chunks to prioritize the most relevant information for answering the specific question.
+*   All retrieved context is **consolidated** into a single, clean knowledge block for the next step.
+
+**5. AI Core - Step C: Synthesize the Final Answer**
+*   The powerful final response model (`gemini-2.5-pro`) is invoked.
+*   **Input:** A carefully constructed prompt containing:
+    1.  The original user email for context.
+    2.  The consolidated, reranked knowledge from the RAG step.
+*   **Goal:** To generate a professional, helpful, and factually grounded HTML response that addresses all of the user's original questions.
+
+**6. Finalization & Delivery**
+*   **Trust & Safety:** The system appends source citations (which documents were used) and a responsible AI disclaimer to the generated HTML.
+*   **Email Reply:** The final HTML is sent as a reply within the correct email thread using the `Gmail API`.
+*   **State Update:** The email's status in `Firestore` is updated to "replied", completing the cycle.
+
 
 ---
 
