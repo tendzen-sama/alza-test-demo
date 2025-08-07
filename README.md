@@ -71,9 +71,9 @@ src/
 ### Processing Flow
 
 1. **Email Monitoring**: Gmail API with Pub/Sub notifications for real-time email detection
-2. **Multi-modal Analysis**: Gemini 2.0 processes text + attachments to extract customer questions
+2. **Multi-modal Analysis**: Gemini 2.5 lite processes text + attachments to extract customer questions
 3. **RAG Search**: Vertex AI searches knowledge base for relevant product/service information
-4. **Response Generation**: Gemini generates personalized customer service responses
+4. **Response Generation**: Gemini 2.5 pro generates personalized customer service responses
 5. **Email Reply**: Automated response sent via Gmail API with threading support
 
 ---
