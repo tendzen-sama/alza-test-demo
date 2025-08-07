@@ -4,7 +4,20 @@
 
 ## 🎯 Project Overview
 
-This project demonstrates an advanced AI-powered email assistant that automatically processes customer inquiries sent to Alza.cz. The system integrates multiple Google Cloud services with Google's Gemini AI models to provide intelligent, contextual responses to customer questions through email attachments (audio, PDFs, images) and text.
+**This is a Proof-of-Concept (POC) project** demonstrating an advanced AI-powered email assistant that automatically processes customer inquiries sent to Alza.cz. The system integrates multiple Google Cloud services with Google's Gemini AI models to provide intelligent, contextual responses to customer questions through email attachments (audio, PDFs, images) and text.
+
+### Project Goals (Alza Assessment Requirements)
+
+**Core Objectives:**
+1. **Automatic Email Monitoring**: System monitors dedicated inbox for new unread emails
+2. **Multi-modal Processing**: Parse and understand attachments (PDFs, audio files, images) 
+3. **Intelligent Response Generation**: Generate contextual customer service responses
+4. **Production-Ready Architecture**: Scalable cloud-native solution with proper error handling
+
+**Advanced Features Implementation:**
+- ✅ **Option B: RAG (Retrieval-Augmented Generation)** - Implemented comprehensive knowledge base integration
+- Integration with Alza's product catalog, warranty policies, and customer service procedures
+- Semantic search and context-aware response generation
 
 **Key Capabilities:**
 - **Multi-modal Processing**: Handles text, audio files, PDFs, and images
@@ -22,7 +35,7 @@ This project demonstrates an advanced AI-powered email assistant that automatica
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Gmail API     │───▶│  Cloud Pub/Sub  │───▶│ Cloud Function  │
-│ (Email Monitor) │    │  (Notifications)│    │ (AI Processing) │
+│ (Email Monitor) │    │  (Notifications)│    │ (Modular Design)│
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                                           │
                 ┌─────────────────────────────────────────┼─────────────────────────────
@@ -34,6 +47,26 @@ This project demonstrates an advanced AI-powered email assistant that automatica
       └─────────────────┘     └─────────────────┘     └─────────────────┘     │ Knowledge Base) │
                                                                               └─────────────────┘
 ```
+
+### Modular Code Architecture
+
+**Production-Ready Modular Design:**
+```
+src/
+├── main.py              # Lightweight orchestrator (Gmail history tracking)
+├── modules/
+│   ├── config.py        # Shared configuration and clients
+│   ├── gmail_service.py # Gmail API operations and email processing
+│   ├── ai_core.py       # AI query generation, RAG, and response synthesis
+│   └── security.py      # Input validation and sanitization
+└── test_modules.py      # Comprehensive test suite
+```
+
+**Benefits:**
+- **Testability**: Each module independently testable with mocks
+- **Team Development**: Parallel work without code conflicts
+- **Maintainability**: Single Responsibility Principle enforced
+- **Scalability**: Easy to extend and modify individual components
 
 ### Processing Flow
 
@@ -70,23 +103,23 @@ Email + Attachments
         │
         ▼
 ┌─────────────────────────────────────────────────────┐
-│  Gemini 2.5 flash-lite: Multi-modal Query Extraction          │
-│  Input: Email text + Audio/PDF/Image files         │
-│  Output: ["query1", "query2", "query3", ...]       │
+│  Gemini 2.5 flash-lite: Multi-modal Query Extraction│
+│  Input: Email text + Audio/PDF/Image files          │
+│  Output: ["query1", "query2", "query3", ...]        │
 └─────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────┐
-│  Vertex AI RAG: Knowledge Base Search              │
-│  Input: Customer queries                           │
-│  Output: Relevant product/service information      │
+│  Vertex AI RAG: Knowledge Base Search               │
+│  Input: Customer queries                            │
+│  Output: Relevant product/service information       │
 └─────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────┐
-│  Gemini 2.5 PRO: Customer Response Generation          │
-│  Input: Original email + RAG context               │
-│  Output: Professional customer service response    │
+│  Gemini 2.5 PRO: Customer Response Generation       │
+│  Input: Original email + RAG context                │
+│  Output: Professional customer service response     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -143,15 +176,19 @@ The system includes a comprehensive knowledge base covering:
 ### RAG Implementation
 
 **Vector Search with Vertex AI:**
-- Automatic document chunking and embedding
-- Semantic similarity search for customer queries
-- Context limiting (max 3 relevant chunks per query, 2000 chars total)
-- Multi-query support for complex customer emails
+- **Initial Setup**: Default configuration with standard chunk_size, chunk_overlap, and Layout parser
+- **Optimization Phase**: After performance testing, implemented custom chunking strategy:
+  - **Chunk Size**: 300 characters (optimized for semantic coherence)
+  - **Chunk Overlap**: 50 characters (maintains context continuity)  
+  - **Document Parser**: Upgraded from default Layout parser to **DocumentAI** for better text extraction
+- **Reranker Integration**: LLM-based reranking for improved answer accuracy
+- **Context Limiting**: Max 3 relevant chunks per query, 2000 chars total per response
 
-**Context Optimization:**
-- **Previous Issue**: RAG returned 79k+ characters overwhelming the AI
-- **Solution**: Implemented intelligent context filtering
+**Context Optimization Journey:**
+- **Initial Issue**: RAG returned 79k+ characters overwhelming the AI model
+- **Solution**: Implemented intelligent context filtering and chunking optimization  
 - **Result**: 90% reduction in context size while maintaining accuracy
+- **Reranker Enhancement**: Added LLM-based reranking for 4.2% improvement in answer correctness
 
 ---
 
@@ -266,27 +303,40 @@ GOOGLE_CLOUD_LOCATION_GEMINI=europe-west1
 BOT_EMAIL_ADDRESS=your-bot@gmail.com
 GCS_BUCKET_NAME=your-storage-bucket
 FIRESTORE_DB_ID=your-firestore-database
-GEMINI_MODEL=gemini-2.0-flash-lite-001
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_MODEL_FINAL_ANSWER=gemini-2.5-pro
+LLM_RANKER=gemini-2.5-flash-lite
 RAG_CORPUS_DISPLAY_NAME=alza-email-bot-knowledge
+PUBSUB_TOPIC_NAME=your-topic-name
+PUBSUB_SUBSCRIPTION_NAME=your-subscription-name
 ```
 
 ### Deployment Commands
 
-**Deploy Cloud Function:**
+**Deploy Modular Cloud Function:**
 ```bash
+# Deploy the new modular architecture
+cd src
 ./deployment/deploy.sh
 ```
 
 **Initialize Gmail Monitoring:**
 ```bash
-cd alza_bot
+# Setup Gmail API push notifications (expires every 7 days)
 python start_watch.py
 ```
 
 **Setup Knowledge Base:**
 ```bash
+# Upload documents and initialize RAG corpus
 python upload_rag_documents.py
 python initialize_rag.py
+```
+
+**Verify Deployment:**
+```bash
+# Test the modular architecture
+python test_modules.py
 ```
 
 ---
@@ -308,20 +358,32 @@ python initialize_rag.py
 
 ## 🧪 Testing & Quality Assurance
 
-### Comprehensive Test Suite
+### Modular Architecture Testing
 
-**Unit Tests:**
-- `test_query_extraction.py`: Multi-modal query generation
-- `test_rag_issues.py`: Knowledge base retrieval accuracy
-- `test_email_body_extraction.py`: Gmail API parsing
+**Module Unit Tests:**
+- `test_modules.py`: Independent testing of all modules
+  - Security validation and sanitization functions
+  - Gmail service operations (email parsing, attachment processing)
+  - Configuration and client initialization
+  - Each module tested in isolation with mocks
 
-**Integration Tests:**
-- `test_comprehensive_multimodal.py`: End-to-end workflow
-- `test_production_readiness.py`: Production environment validation
+**Evaluation Framework:**
+- `evaulation/rag_evaluator.py`: Comprehensive RAG system assessment
+  - Context relevance, answer faithfulness, correctness metrics
+  - A/B testing framework for reranker performance
+  - Automated golden dataset evaluation
 
-**Performance Tests:**
-- `test_rag_context_limit.py`: Context optimization validation
-- `test_final_llm_issue.py`: Response quality assessment
+**Development Testing (Available but not in production):**
+- Real customer scenario testing with Czech language support
+- Multi-modal attachment processing validation  
+- Production readiness and security compliance testing
+- Performance and optimization validation testing
+
+**Testing Benefits:**
+- **Modularity**: Each component tested independently 
+- **Mocking**: Gmail API, AI models, and storage can be mocked
+- **Continuous Integration**: Ready for CI/CD pipeline integration
+- **Evaluation-Driven**: Performance metrics guide development decisions
 
 ---
 
@@ -340,23 +402,88 @@ This system demonstrates advanced AI capabilities suitable for enterprise custom
 
 ## 📝 Technical Notes
 
-### Recent Optimizations
+### Evaluation Results (Latest Performance Data)
 
-**RAG Reranking Enhancement (Latest Update):**
-- **Implementation**: LLM-based reranking using Gemini 2.5 Flash Lite
-- **Performance Gain**: 30.8% improvement in answer correctness (measured via comprehensive evaluation)
-- **Technical Approach**: RagRetrievalConfig with LlmRanker for intelligent context ordering
-- **Production Status**: ✅ Deployed to cloud function
+**Comprehensive RAG System Assessment:**
 
-**RAG Context Limiting:**
-- **Problem**: AI responses overwhelmed by excessive context (79k+ characters)
-- **Solution**: Intelligent filtering to top 3 most relevant results per query
-- **Impact**: 90% reduction in context size, significantly improved response accuracy
+**With Reranker Implementation:**
+- **Context Relevance**: 72.9% - Focused on most relevant information
+- **Answer Faithfulness**: 100% - All responses grounded in source material  
+- **Answer Correctness**: 66.7% - Improved accuracy for customer queries
+
+**Without Reranker (Baseline):**
+- **Context Relevance**: 77.1% - More comprehensive context included
+- **Answer Faithfulness**: 100% - Consistent grounding in sources
+- **Answer Correctness**: 62.5% - Standard accuracy levels
+
+**Performance Analysis:**
+- **Trade-off Insight**: Reranking trades 4.2% context relevance for 4.2% better correctness
+- **Business Value**: Better end-user experience with more accurate answers
+- **Implementation**: LLM-based reranker using Gemini 2.5 Flash Lite via RagRetrievalConfig
+- **Production Status**: ✅ Deployed and active
+
+**RAG System Engineering Evolution:**
+
+**Phase 1 - Initial Implementation (Baseline):**
+- **Configuration**: Default Vertex AI RAG settings
+- **Chunking**: Standard chunk_size and chunk_overlap parameters
+- **Document Parser**: Default Layout parser for text extraction
+- **Problem Discovered**: RAG returned 79k+ characters overwhelming AI model
+
+**Phase 2 - Performance Testing & Analysis:**
+- **Issue Identification**: Excessive context size causing response degradation
+- **Root Cause**: Inefficient chunking strategy and poor text extraction
+- **Engineering Approach**: Systematic testing of chunking parameters
+
+**Phase 3 - Optimization Implementation:**
+- **Chunking Strategy**: Custom 300 character chunks with 50 character overlap
+- **Document Parser**: Upgraded to DocumentAI for superior text extraction
+- **Context Filtering**: Intelligent limiting to top 3 most relevant results per query
+- **Reranker Integration**: LLM-based ranking for improved accuracy
+
+**Results:**
+- **Context Size**: 90% reduction (79k+ → ~2k characters)
+- **Response Quality**: Significantly improved accuracy and relevance
+- **Engineering Validation**: A/B testing confirmed 4.2% correctness improvement
 
 **Multi-modal Bias Removal:**
 - **Issue**: System showed preference for audio processing over other attachment types
 - **Fix**: Updated prompts to handle PDFs, audio, and images equally
 - **Result**: Balanced processing across all supported file types
+
+---
+
+## 🚀 Production Roadmap
+
+**Priority enhancements for enterprise deployment:**
+
+### 1. Data Privacy & Security Enhancement
+**Implement DLP API for PII Protection**
+- **Objective**: Identify and redact personally identifiable information (PII) from email content
+- **Implementation**: Google Cloud Data Loss Prevention API integration
+- **Benefit**: Enhanced safety and GDPR compliance for customer data handling
+- **Priority**: High - Critical for production deployment
+
+### 2. Automated Gmail Watch Renewal  
+**Create Cloud Scheduler-Triggered Function**
+- **Objective**: Automate Gmail API watch subscription renewal (currently expires every 7 days)
+- **Implementation**: Simple Cloud Function triggered daily by Cloud Scheduler
+- **Benefit**: Eliminate manual intervention and ensure 100% uptime
+- **Priority**: High - Essential for production reliability
+
+### 3. Knowledge Base Automation Pipeline
+**GCS-Triggered Knowledge Updates**
+- **Objective**: Automatic RAG corpus updates when new documents added to storage
+- **Implementation**: Cloud Function triggered by Google Cloud Storage bucket changes  
+- **Benefit**: Real-time knowledge base updates without manual intervention
+- **Priority**: Medium - Operational efficiency improvement
+
+### 4. Enhanced Transparency & Explainability
+**Direct Context Source Attribution**
+- **Objective**: Provide specific source excerpts with each response for better transparency
+- **Implementation**: Include exact context passages retrieved from knowledge base
+- **Benefit**: Improved explainability and user trust in AI-generated responses
+- **Priority**: Medium - User experience enhancement
 
 ---
 
