@@ -123,7 +123,7 @@ def _process_attachments(gmail_service, message_id: str, parts: List[dict]) -> L
             
     return gemini_parts
 
-def _send_reply(gmail_service, headers: dict, thread_id: str, reply_body: str):
+def _send_reply(gmail_service, headers: dict, thread_id: str, reply_body: str, sender_email: str):
     """Send reply email in the same thread."""
     try:
         original_subject = headers.get('subject', '(no subject)')
@@ -132,7 +132,7 @@ def _send_reply(gmail_service, headers: dict, thread_id: str, reply_body: str):
         reply_subject = f"Re: {original_subject}" if not original_subject.lower().startswith("re:") else original_subject
         
         message = MIMEMultipart()
-        message['to'] = original_from
+        message['to'] = sender_email
         message['from'] = BOT_EMAIL
         message['subject'] = reply_subject
         

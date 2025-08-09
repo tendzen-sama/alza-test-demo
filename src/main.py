@@ -180,6 +180,12 @@ def process_email_http(request: Request):
 
         logger.info(f"Found {len(new_message_ids)} new message(s) to process.")
         for message_id in new_message_ids:
+            # Initialize variables for exception handling
+            headers = {}
+            email_subject = ""
+            thread_id = ""
+            consolidated_rag_context = ""
+            
             try:
                 if not _claim_email_for_processing(message_id): continue
 
@@ -239,14 +245,18 @@ def process_email_http(request: Request):
                     reply_body = _create_fallback_response(email_subject, consolidated_rag_context)
 
                 logger.info(f"Generated reply: {reply_body[:200].replace(chr(10), ' ')}...")
-                _send_reply(gmail_service, headers, thread_id, reply_body)
+                _send_reply(gmail_service, headers, thread_id, reply_body, sender_email)
                 _mark_email_as_processed(message_id, status="replied")
 
             except ResourceExhausted as e:
                 logger.error(f"🚨 CRITICAL: Resource exhausted while processing {message_id}: {e}")
                 try:
+                    # Extract sender email for fallback response
+                    fallback_sender_match = re.search(r'<(.*?)>', headers.get('from', ''))
+                    fallback_sender_email = fallback_sender_match.group(1) if fallback_sender_match else headers.get('from', '')
+                    
                     fallback_reply = _create_fallback_response(email_subject, consolidated_rag_context)
-                    _send_reply(gmail_service, headers, thread_id, fallback_reply)
+                    _send_reply(gmail_service, headers, thread_id, fallback_reply, fallback_sender_email)
                     logger.info(f"✅ Sent fallback response due to quota exhaustion for {message_id}")
                     _mark_email_as_processed(message_id, status="replied_fallback")
                 except Exception as send_error:
@@ -254,10 +264,13 @@ def process_email_http(request: Request):
                     _mark_email_as_processed(message_id, status="failed_fallback")
             except Exception as e:
                 logger.error(f"Failed to process message {message_id}: {e}")
-                sender_email = headers.get('from', 'unknown')
-                if sender_email != BOT_EMAIL:  # Don't reply to ourselves
+                # Extract sender email for error response
+                error_sender_match = re.search(r'<(.*?)>', headers.get('from', ''))
+                error_sender_email = error_sender_match.group(1) if error_sender_match else headers.get('from', '')
+                
+                if error_sender_email != BOT_EMAIL:  # Don't reply to ourselves
                     fallback_reply = _create_fallback_response(email_subject, "")
-                    _send_reply(gmail_service, headers, thread_id, fallback_reply)
+                    _send_reply(gmail_service, headers, thread_id, fallback_reply, error_sender_email)
                     logger.info(f"✅ Sent fallback response due to processing error for {message_id}")
                     _mark_email_as_processed(message_id, status="replied_fallback")
                 else:
