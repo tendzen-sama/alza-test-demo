@@ -5,6 +5,8 @@ import base64
 import logging
 import os
 import re
+import time
+import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Tuple, Dict
@@ -14,6 +16,24 @@ from vertexai.generative_models import Part
 from .config import storage_client, GCS_BUCKET_NAME, BOT_EMAIL
 
 logger = logging.getLogger(__name__)
+
+def _retry_gmail_operation(operation_func, max_retries: int = 3, base_delay: float = 1.0):
+    """Retry Gmail API operations with exponential backoff for transient errors."""
+    for attempt in range(max_retries):
+        try:
+            return operation_func()
+        except HttpError as e:
+            # Only retry on specific transient errors
+            if e.resp.status in [429, 500, 502, 503, 504] and attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+                logger.warning(f"Gmail API error {e.resp.status}, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                raise e
+        except Exception as e:
+            # Don't retry on non-HTTP errors
+            raise e
+    return None
 
 def _get_email_details(payload: dict) -> Tuple[str, dict]:
     """Extract email body and headers from Gmail API payload."""
@@ -88,11 +108,21 @@ def _process_attachments(gmail_service, message_id: str, parts: List[dict]) -> L
                 logger.warning(f"SECURITY: Blocked attachment {filename}: {error_msg}")
                 continue
                 
-            # Download attachment
-            attachment_id = part['body']['attachmentId']
-            attachment_data = gmail_service.users().messages().attachments().get(
-                userId='me', messageId=message_id, id=attachment_id
-            ).execute()['data']
+            # Download attachment with retry logic
+            attachment_id = part['body'].get('attachmentId')
+            if not attachment_id:
+                logger.warning(f"Attachment {filename} missing attachmentId, skipping")
+                continue
+                
+            def _download_attachment():
+                return gmail_service.users().messages().attachments().get(
+                    userId='me', messageId=message_id, id=attachment_id
+                ).execute()['data']
+            
+            attachment_data = _retry_gmail_operation(_download_attachment)
+            if not attachment_data:
+                logger.warning(f"Failed to download attachment {filename} after retries")
+                continue
             file_data = base64.urlsafe_b64decode(attachment_data.encode('UTF-8'))
 
             # Enhanced validation with file content
@@ -150,7 +180,11 @@ def _send_reply(gmail_service, headers: dict, thread_id: str, reply_body: str, s
         message.attach(MIMEText(reply_body, 'html', 'utf-8'))
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         create_message = {'raw': encoded_message, 'threadId': thread_id}
-        gmail_service.users().messages().send(userId='me', body=create_message).execute()
+        
+        def _send_email():
+            return gmail_service.users().messages().send(userId='me', body=create_message).execute()
+        
+        _retry_gmail_operation(_send_email)
         logger.info(f"Successfully sent reply to thread {thread_id}")
         
     except HttpError as error:

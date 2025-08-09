@@ -247,6 +247,17 @@ def process_email_http(request: Request):
                 logger.info(f"Generated reply: {reply_body[:200].replace(chr(10), ' ')}...")
                 _send_reply(gmail_service, headers, thread_id, reply_body, sender_email)
                 _mark_email_as_processed(message_id, status="replied")
+                
+                # Mark email as read in Gmail to remove UNREAD label
+                try:
+                    gmail_service.users().messages().modify(
+                        userId='me', 
+                        id=message_id, 
+                        body={'removeLabelIds': ['UNREAD']}
+                    ).execute()
+                    logger.info(f"Marked message {message_id} as read in Gmail")
+                except Exception as e:
+                    logger.warning(f"Failed to mark message {message_id} as read: {e}")
 
             except ResourceExhausted as e:
                 logger.error(f"🚨 CRITICAL: Resource exhausted while processing {message_id}: {e}")
@@ -259,6 +270,17 @@ def process_email_http(request: Request):
                     _send_reply(gmail_service, headers, thread_id, fallback_reply, fallback_sender_email)
                     logger.info(f"✅ Sent fallback response due to quota exhaustion for {message_id}")
                     _mark_email_as_processed(message_id, status="replied_fallback")
+                    
+                    # Mark email as read in Gmail
+                    try:
+                        gmail_service.users().messages().modify(
+                            userId='me', 
+                            id=message_id, 
+                            body={'removeLabelIds': ['UNREAD']}
+                        ).execute()
+                        logger.info(f"Marked fallback message {message_id} as read")
+                    except Exception as mark_error:
+                        logger.warning(f"Failed to mark fallback message as read: {mark_error}")
                 except Exception as send_error:
                     logger.error(f"Failed to send fallback response: {send_error}")
                     _mark_email_as_processed(message_id, status="failed_fallback")
@@ -273,6 +295,17 @@ def process_email_http(request: Request):
                     _send_reply(gmail_service, headers, thread_id, fallback_reply, error_sender_email)
                     logger.info(f"✅ Sent fallback response due to processing error for {message_id}")
                     _mark_email_as_processed(message_id, status="replied_fallback")
+                    
+                    # Mark email as read in Gmail
+                    try:
+                        gmail_service.users().messages().modify(
+                            userId='me', 
+                            id=message_id, 
+                            body={'removeLabelIds': ['UNREAD']}
+                        ).execute()
+                        logger.info(f"Marked error response message {message_id} as read")
+                    except Exception as mark_error:
+                        logger.warning(f"Failed to mark error response message as read: {mark_error}")
                 else:
                     _mark_email_as_processed(message_id, status="failed_self_sent")
         
