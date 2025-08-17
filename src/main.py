@@ -173,7 +173,7 @@ def process_email_http(request: Request):
             if new_history_id != start_history_id: _save_last_history_id_to_firestore(new_history_id)
             return "OK", 204
 
-        new_message_ids = {msg['message']['id'] for rec in history_response['history'] if 'messagesAdded' in rec for msg in rec['messagesAdded'] if 'INBOX' in msg['message']['labelIds']}
+        new_message_ids = {msg['message']['id'] for rec in history_response['history'] if 'messagesAdded' in rec for msg in rec['messagesAdded'] if 'INBOX' in msg['message'].get('labelIds', [])}
         if not new_message_ids:
             _save_last_history_id_to_firestore(new_history_id)
             return "OK", 204
