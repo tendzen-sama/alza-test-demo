@@ -1,3 +1,7 @@
+# [UPCOMING: 19.08.2025] Migrate to Managed Vertex AI Evaluation Service
+*   Objective: This upcoming update will showcase the migration from the initial baseline evaluation script to a robust pipeline using the programmatic Vertex AI Evaluation Service SDK. This demonstrates a key MLOps skill: leveraging managed services for scalable and reliable model assessment.
+*   Engineering Journey: *I built a RAG system and initially developed a baseline evaluation script. However, I identified its limitations in scalability and metric reliability. I then engineered a robust evaluation pipeline by migrating to the managed Vertex AI Evaluation Service, which allowed me to systematically measure and improve performance across multiple dimensions like groundedness, relevance, and correctness.*
+
 # Alza AI Email Assistant Demo
 
 **Professional demonstration of an intelligent email customer service system for Alza.cz**

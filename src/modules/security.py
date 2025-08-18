@@ -25,6 +25,21 @@ def _sanitize_for_prompt_injection(content: str) -> str:
         r'new\s+(?:instructions|rules|role)',
         r'forget\s+(?:everything|instructions|rules)',
         r'jailbreak|jail\s+break',
+        # Advanced role injection patterns
+        r'system\s+(?:instruction|directive|command)',
+        r'override\s+all\s+previous',
+        r'(?:new|temporary)\s+persona',
+        r'ignore\s+the\s+persona',
+        r'systembot|system\s+bot',
+        r'development\s+team',
+        r'diagnostic\s+purposes',
+        r'core\s+operational\s+rules',
+        r'markdown\s+table.*rules',
+        r'system\s+directive',
+        r'end\s+of\s+directive',
+        r'temporary\s+persona',
+        r'debug.*prompt',
+        r'help\s+debug.*prompt',
     ]
 
     sanitized = content
